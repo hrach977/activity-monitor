@@ -9,5 +9,6 @@ public class Application {
         OperatingSystem os = new MacOperatingSystem();
         System.out.println("proc count: " + os.getProcessCount());
         System.out.println("thread count: " + os.getThreadCount());
+
     }
 }
