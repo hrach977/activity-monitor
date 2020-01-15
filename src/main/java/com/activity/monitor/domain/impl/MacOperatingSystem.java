@@ -4,6 +4,7 @@ import com.activity.monitor.AppConstants;
 import com.activity.monitor.common.SysService;
 import com.activity.monitor.domain.OperatingSystem;
 import com.activity.monitor.common.SysProcess;
+import com.activity.monitor.util.Util;
 import com.sun.jna.platform.mac.SystemB;
 import com.sun.jna.platform.mac.SystemB.ProcTaskInfo;
 
@@ -17,6 +18,12 @@ import static com.activity.monitor.common.SysService.State.STOPPED;
 import static com.activity.monitor.domain.OperatingSystem.ProcessSort.PID;
 
 public class MacOperatingSystem extends OperatingSystem {
+
+    private int maxProc;
+
+    public MacOperatingSystem() {
+        this.maxProc = Util.sysctl("kern.maxproc", 0x1000);
+    }
 
     @Override
     public int getProcessCount() {
@@ -43,6 +50,26 @@ public class MacOperatingSystem extends OperatingSystem {
 
     @Override
     public List<SysProcess> getChildProcesses(int ppid, ProcessSort sort) {
+        List<SysProcess> procs = new ArrayList<>();
+        int[] buffer = new int[this.maxProc];
+        int numberOfProcesses = SystemB.INSTANCE.proc_listpids(SystemB.PROC_ALL_PIDS, 0, buffer,
+                buffer.length * SystemB.INT_SIZE) / SystemB.INT_SIZE;
+
+        for (int i = 0; i < numberOfProcesses; i++) {
+            // Handle OB1 error in proc_listpids where the size returned is: SystemB.INT_SIZE * (buffer + 1)
+            if (buffer[i] == 0) {
+                continue;
+            }
+            if (parentPid == getParentProcessPid(buffer[i])) { //todo implement this
+                SysProcess proc = getProcess(buffer[i]); //todo implement this
+                if (proc != null) {
+                    procs.add(proc);
+                }
+            }
+        }
+
+//        List<OSProcess> sorted = processSort(procs, limit, sort);
+//        return sorted.toArray(new OSProcess[0]);
         return null;
     }
 
