@@ -1,12 +1,20 @@
 package com.activity.monitor.domain.impl;
 
 import com.activity.monitor.AppConstants;
+import com.activity.monitor.common.SysService;
 import com.activity.monitor.domain.OperatingSystem;
-import com.activity.monitor.domain.SysProcess;
+import com.activity.monitor.common.SysProcess;
 import com.sun.jna.platform.mac.SystemB;
 import com.sun.jna.platform.mac.SystemB.ProcTaskInfo;
 
-import java.util.List;
+import java.io.File;
+import java.util.*;
+
+import static com.activity.monitor.AppConstants.MAC_PATH_LAUNCHAGENTS;
+import static com.activity.monitor.AppConstants.MAC_PATH_LAUNGDAEMONS;
+import static com.activity.monitor.common.SysService.State.RUNNING;
+import static com.activity.monitor.common.SysService.State.STOPPED;
+import static com.activity.monitor.domain.OperatingSystem.ProcessSort.PID;
 
 public class MacOperatingSystem extends OperatingSystem {
 
@@ -31,6 +39,48 @@ public class MacOperatingSystem extends OperatingSystem {
         }
 
         return count;
+    }
+
+    @Override
+    public List<SysProcess> getChildProcesses(int ppid, ProcessSort sort) {
+        return null;
+    }
+
+    @Override
+    public List<SysService> getServices() {
+
+        List<SysService> services = new ArrayList<>();
+        Set<String> running = new HashSet<>();
+        for (SysProcess p : getChildProcesses(1, PID)) { //find for 'launchd' [pid = 1] ||  remove limit from signature
+            SysService s = new SysService(p.getName(), p.getProcessID(), RUNNING);
+            services.add(s);
+            running.add(p.getName());
+        }
+        // Get Directories for stopped services
+        ArrayList<File> files = new ArrayList<>();
+        File dir = new File(MAC_PATH_LAUNCHAGENTS);
+        if (dir.exists() && dir.isDirectory()) {
+            files.addAll(Arrays.asList(dir.listFiles((f, name) -> name.toLowerCase().endsWith(".plist"))));
+        } else {
+//            LOG.error("Directory: /System/Library/LaunchAgents does not exist");
+        }
+        dir = new File(MAC_PATH_LAUNGDAEMONS);
+        if (dir.exists() && dir.isDirectory()) {
+            files.addAll(Arrays.asList(dir.listFiles((f, name) -> name.toLowerCase().endsWith(".plist"))));
+        } else {
+//            LOG.error("Directory: /System/Library/LaunchDaemons does not exist");
+        }
+        for (File f : files) {
+            // remove .plist extension
+            String name = f.getName().substring(0, f.getName().length() - 6);
+            int index = name.lastIndexOf('.');
+            String shortName = (index < 0 || index > name.length() - 2) ? name : name.substring(index + 1);
+            if (!running.contains(name) && !running.contains(shortName)) {
+                SysService s = new SysService(name, 0, STOPPED);
+                services.add(s);
+            }
+        }
+        return services;
     }
 
     @Override
@@ -72,4 +122,6 @@ public class MacOperatingSystem extends OperatingSystem {
     protected boolean elevated() {
         return System.getenv("SUDO_COMMAND") != null;
     }
+
+
 }

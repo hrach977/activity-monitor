@@ -1,11 +1,25 @@
 package com.activity.monitor.domain;
 
+import com.activity.monitor.common.SysProcess;
+import com.activity.monitor.common.SysService;
 import com.google.common.base.Suppliers;
 
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 public abstract class OperatingSystem {
+
+    public enum ProcessSort {
+        CPU, MEMORY, OLDEST, NEWEST, PID, PARENTPID, NAME
+    }
+
+    private static final Map<ProcessSort, Comparator<SysProcess>> COMPARATORS =
+            new HashMap<ProcessSort, Comparator<SysProcess>>() {{
+                put(ProcessSort.PID, Comparator.comparing(SysProcess::getProcessID));
+            }};
 
     private final Supplier<String> manufacturer = Suppliers.memoize(this::manufacturer);
 
@@ -35,12 +49,12 @@ public abstract class OperatingSystem {
 
     public abstract List<SysProcess> getProcesses();
 
+    public abstract List<SysService> getServices();
+
+    public abstract List<SysProcess> getChildProcesses(int ppid, ProcessSort sort);
+
     public abstract SysProcess getProcess(int pid);
 
     public abstract String getFamily();
-
-    public enum SysProcessSort {
-        CPU, MEMORY, PID, PARENTPID, NAME, OLDEST, NEWEST
-    }
 
 }
