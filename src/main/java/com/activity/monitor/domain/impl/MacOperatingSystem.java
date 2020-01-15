@@ -5,24 +5,43 @@ import com.activity.monitor.common.SysService;
 import com.activity.monitor.domain.OperatingSystem;
 import com.activity.monitor.common.SysProcess;
 import com.activity.monitor.util.Util;
+import com.sun.jna.Memory;
+import com.sun.jna.Pointer;
 import com.sun.jna.platform.mac.SystemB;
 import com.sun.jna.platform.mac.SystemB.ProcTaskInfo;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static com.activity.monitor.AppConstants.MAC_PATH_LAUNCHAGENTS;
 import static com.activity.monitor.AppConstants.MAC_PATH_LAUNGDAEMONS;
-import static com.activity.monitor.common.SysService.State.RUNNING;
-import static com.activity.monitor.common.SysService.State.STOPPED;
+import static com.activity.monitor.common.SysProcess.State.*;
 import static com.activity.monitor.domain.OperatingSystem.ProcessSort.PID;
 
 public class MacOperatingSystem extends OperatingSystem {
 
-    private int maxProc;
+    private final String osXVersion;
+    private final int maxProc;
+
+    // 64-bit flag
+    private static final int P_LP64 = 0x4;
+    /*
+     * OS X States:
+     */
+    private static final int SSLEEP = 1; // sleeping on high priority
+    private static final int SWAIT = 2; // sleeping on low priority
+    private static final int SRUN = 3; // running
+    private static final int SIDL = 4; // intermediate state in process creation
+    private static final int SZOMB = 5; // intermediate state in process
+    // termination
+    private static final int SSTOP = 6; // process being traced
 
     public MacOperatingSystem() {
         this.maxProc = Util.sysctl("kern.maxproc", 0x1000);
+        this.osXVersion = System.getProperty("os.version");
+        System.out.println("maxProc: " + maxProc);
+        System.out.println("osXVersion: " + osXVersion);
     }
 
     @Override
@@ -60,7 +79,7 @@ public class MacOperatingSystem extends OperatingSystem {
             if (buffer[i] == 0) {
                 continue;
             }
-            if (parentPid == getParentProcessPid(buffer[i])) { //todo implement this
+            if (ppid == getParentProcessPid(buffer[i])) {
                 SysProcess proc = getProcess(buffer[i]); //todo implement this
                 if (proc != null) {
                     procs.add(proc);
@@ -68,9 +87,17 @@ public class MacOperatingSystem extends OperatingSystem {
             }
         }
 
-//        List<OSProcess> sorted = processSort(procs, limit, sort);
-//        return sorted.toArray(new OSProcess[0]);
-        return null;
+        procs.sort(OperatingSystem.COMPARATORS.get(PID));
+
+        return procs;
+    }
+
+    private int getParentProcessPid(int pid) {
+        SystemB.ProcTaskAllInfo taskAllInfo = new SystemB.ProcTaskAllInfo();
+        if (0 > SystemB.INSTANCE.proc_pidinfo(pid, SystemB.PROC_PIDTASKALLINFO, 0, taskAllInfo, taskAllInfo.size())) {
+            return 0;
+        }
+        return taskAllInfo.pbsd.pbi_ppid;
     }
 
     @Override
@@ -79,7 +106,7 @@ public class MacOperatingSystem extends OperatingSystem {
         List<SysService> services = new ArrayList<>();
         Set<String> running = new HashSet<>();
         for (SysProcess p : getChildProcesses(1, PID)) { //find for 'launchd' [pid = 1] ||  remove limit from signature
-            SysService s = new SysService(p.getName(), p.getProcessID(), RUNNING);
+            SysService s = new SysService(p.getName(), p.getProcessID(), SysService.State.RUNNING);
             services.add(s);
             running.add(p.getName());
         }
@@ -103,7 +130,7 @@ public class MacOperatingSystem extends OperatingSystem {
             int index = name.lastIndexOf('.');
             String shortName = (index < 0 || index > name.length() - 2) ? name : name.substring(index + 1);
             if (!running.contains(name) && !running.contains(shortName)) {
-                SysService s = new SysService(name, 0, STOPPED);
+                SysService s = new SysService(name, 0, SysService.State.STOPPED);
                 services.add(s);
             }
         }
@@ -132,7 +159,105 @@ public class MacOperatingSystem extends OperatingSystem {
 
     @Override
     public SysProcess getProcess(int pid) {
-        return null;
+        SystemB.ProcTaskAllInfo taskAllInfo = new SystemB.ProcTaskAllInfo();
+        if (0 > SystemB.INSTANCE.proc_pidinfo(pid, SystemB.PROC_PIDTASKALLINFO, 0, taskAllInfo, taskAllInfo.size())) {
+            return null;
+        }
+        String name = null;
+        String path = "";
+        Pointer buf = new Memory(SystemB.PROC_PIDPATHINFO_MAXSIZE);
+        if (0 < SystemB.INSTANCE.proc_pidpath(pid, buf, SystemB.PROC_PIDPATHINFO_MAXSIZE)) {
+            path = buf.getString(0).trim();
+            // Overwrite name with last part of path
+            String[] pathSplit = path.split("/");
+            if (pathSplit.length > 0) {
+                name = pathSplit[pathSplit.length - 1];
+            }
+        }
+        // If process is gone, return null
+        if (taskAllInfo.ptinfo.pti_threadnum < 1) {
+            return null;
+        }
+        if (name == null) {
+            // pbi_comm contains first 16 characters of name
+            // null terminated
+            for (int t = 0; t < taskAllInfo.pbsd.pbi_comm.length; t++) {
+                if (taskAllInfo.pbsd.pbi_comm[t] == 0) {
+                    name = new String(taskAllInfo.pbsd.pbi_comm, 0, t, StandardCharsets.UTF_8);
+                    break;
+                }
+            }
+        }
+        long bytesRead = 0;
+        long bytesWritten = 0;
+//        if (this.minor >= 9) { //todo recall to it later
+            SystemB.RUsageInfoV2 rUsageInfoV2 = new SystemB.RUsageInfoV2();
+            if (0 == SystemB.INSTANCE.proc_pid_rusage(pid, SystemB.RUSAGE_INFO_V2, rUsageInfoV2)) {
+                bytesRead = rUsageInfoV2.ri_diskio_bytesread;
+                bytesWritten = rUsageInfoV2.ri_diskio_byteswritten;
+            }
+//        }
+        long now = System.currentTimeMillis();
+        SysProcess proc = new SysProcess();
+        proc.setName(name);
+        proc.setPath(path);
+        switch (taskAllInfo.pbsd.pbi_status) {
+            case SSLEEP:
+                proc.setState(SLEEPING);
+                break;
+            case SWAIT:
+                proc.setState(WAITING);
+                break;
+            case SRUN:
+                proc.setState(RUNNING);
+                break;
+            case SIDL:
+                proc.setState(NEW);
+                break;
+            case SZOMB:
+                proc.setState(ZOMBIE);
+                break;
+            case SSTOP:
+                proc.setState(STOPPED);
+                break;
+            default:
+                proc.setState(OTHER);
+                break;
+        }
+        proc.setProcessID(pid);
+        proc.setParentProcessID(taskAllInfo.pbsd.pbi_ppid);
+        proc.setUserID(Integer.toString(taskAllInfo.pbsd.pbi_uid));
+        SystemB.Passwd user = SystemB.INSTANCE.getpwuid(taskAllInfo.pbsd.pbi_uid);
+        proc.setUser(user == null ? proc.getUserID() : user.pw_name);
+        proc.setGroupID(Integer.toString(taskAllInfo.pbsd.pbi_gid));
+        SystemB.Group group = SystemB.INSTANCE.getgrgid(taskAllInfo.pbsd.pbi_gid);
+        proc.setGroup(group == null ? proc.getGroupID() : group.gr_name);
+        proc.setThreadCount(taskAllInfo.ptinfo.pti_threadnum);
+        proc.setPriority(taskAllInfo.ptinfo.pti_priority);
+        proc.setVirtualSize(taskAllInfo.ptinfo.pti_virtual_size);
+        proc.setResidentSetSize(taskAllInfo.ptinfo.pti_resident_size);
+        proc.setKernelTime(taskAllInfo.ptinfo.pti_total_system / 1000000L);
+        proc.setUserTime(taskAllInfo.ptinfo.pti_total_user / 1000000L);
+        proc.setStartTime(taskAllInfo.pbsd.pbi_start_tvsec * 1000L + taskAllInfo.pbsd.pbi_start_tvusec / 1000L);
+        proc.setUpTime(now - proc.getStartTime());
+        proc.setBytesRead(bytesRead);
+        proc.setBytesWritten(bytesWritten);
+//        proc.setCommandLine(getCommandLine(pid)); //todo recall to it later
+        proc.setOpenFiles(taskAllInfo.pbsd.pbi_nfiles);
+        proc.setBitness((taskAllInfo.pbsd.pbi_flags & P_LP64) == 0 ? 32 : 64);
+
+        SystemB.VnodePathInfo vpi = new SystemB.VnodePathInfo();
+        if (0 < SystemB.INSTANCE.proc_pidinfo(pid, SystemB.PROC_PIDVNODEPATHINFO, 0, vpi, vpi.size())) {
+            int len = 0;
+            for (byte b : vpi.pvi_cdir.vip_path) {
+                if (b == 0) {
+                    break;
+                }
+                len++;
+            }
+            proc.setCurrentWorkingDirectory(new String(vpi.pvi_cdir.vip_path, 0, len, StandardCharsets.US_ASCII));
+        }
+        return proc;
     }
 
     @Override

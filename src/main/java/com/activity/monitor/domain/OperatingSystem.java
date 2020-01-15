@@ -4,10 +4,7 @@ import com.activity.monitor.common.SysProcess;
 import com.activity.monitor.common.SysService;
 import com.google.common.base.Suppliers;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Supplier;
 
 public abstract class OperatingSystem {
@@ -16,10 +13,12 @@ public abstract class OperatingSystem {
         CPU, MEMORY, OLDEST, NEWEST, PID, PARENTPID, NAME
     }
 
-    private static final Map<ProcessSort, Comparator<SysProcess>> COMPARATORS =
+    private static final Map<ProcessSort, Comparator<SysProcess>> comparatorMap =
             new HashMap<ProcessSort, Comparator<SysProcess>>() {{
                 put(ProcessSort.PID, Comparator.comparing(SysProcess::getProcessID));
             }};
+
+    public static final Map<ProcessSort, Comparator<SysProcess>> COMPARATORS = Collections.unmodifiableMap(comparatorMap);
 
     private final Supplier<String> manufacturer = Suppliers.memoize(this::manufacturer);
 
