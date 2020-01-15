@@ -10,10 +10,12 @@ import java.util.List;
 
 public class MacOperatingSystem extends OperatingSystem {
 
+    @Override
     public int getProcessCount() {
         return SystemB.INSTANCE.proc_listpids(SystemB.PROC_ALL_PIDS, 0, null, 0) / SystemB.INT_SIZE;
     }
 
+    @Override
     public int getThreadCount() {
         int count = 0;
 
@@ -31,31 +33,43 @@ public class MacOperatingSystem extends OperatingSystem {
         return count;
     }
 
+    @Override
     public int getBitness() {
         return 0;
     }
 
+    @Override
     public long getSystemUptime() {
         return 0;
     }
 
+    @Override
     public long getSystemBootTime() {
         return 0;
     }
 
+    @Override
     public List<SysProcess> getProcesses() {
         return null;
     }
 
+    @Override
     public SysProcess getProcess(int pid) {
         return null;
     }
 
+    @Override
     public String getFamily() {
         return null;
     }
 
-    public String getManufacturer() {
-        return null;
+    @Override
+    protected String manufacturer() {
+        return "Apple";
+    }
+
+    @Override
+    protected boolean elevated() {
+        return System.getenv("SUDO_COMMAND") != null;
     }
 }

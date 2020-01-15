@@ -9,6 +9,8 @@ public abstract class OperatingSystem {
 
     private final Supplier<String> manufacturer = Suppliers.memoize(this::manufacturer);
 
+    private final Supplier<Boolean> elevated = Suppliers.memoize(this::elevated);
+
     public abstract int getProcessCount();
 
     public abstract int getThreadCount();
@@ -20,6 +22,12 @@ public abstract class OperatingSystem {
     }
 
     protected abstract String manufacturer();
+
+    protected abstract boolean elevated();
+
+    public boolean isElevated() {
+        return elevated.get();
+    }
 
     public abstract long getSystemUptime();
 
