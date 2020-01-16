@@ -223,4 +223,34 @@ public class SysProcess {
     public void setCpuPercent(double cpuPercent) {
         this.cpuPercent = cpuPercent;
     }
+
+    @Override
+    public String toString() {
+        return "SysProcess{" +
+                "name='" + name + '\'' +
+                ", path='" + path + '\'' +
+                ", commandLine='" + commandLine + '\'' +
+                ", currentWorkingDirectory='" + currentWorkingDirectory + '\'' +
+                ", user='" + user + '\'' +
+                ", userID='" + userID + '\'' +
+                ", group='" + group + '\'' +
+                ", groupID='" + groupID + '\'' +
+                ", state=" + state +
+                ", processID=" + processID +
+                ", parentProcessID=" + parentProcessID +
+                ", threadCount=" + threadCount +
+                ", priority=" + priority +
+                ", virtualSize=" + virtualSize +
+                ", residentSetSize=" + residentSetSize +
+                ", kernelTime=" + kernelTime +
+                ", userTime=" + userTime +
+                ", startTime=" + startTime +
+                ", upTime=" + upTime +
+                ", bytesRead=" + bytesRead +
+                ", bytesWritten=" + bytesWritten +
+                ", openFiles=" + openFiles +
+                ", bitness=" + bitness +
+                ", cpuPercent=" + cpuPercent +
+                '}';
+    }
 }

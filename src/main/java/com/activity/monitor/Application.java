@@ -15,14 +15,16 @@ public class Application {
         System.out.println("elevated: " + os.isElevated());
         System.out.println("proc count: " + os.getProcessCount());
         System.out.println("thread count: " + os.getThreadCount());
-
-//        List<SysProcess> sysProcesses = os.getProcesses();
-//        System.out.println("sysProcesses.size: " + sysProcesses.size());
-//        sysProcesses.forEach(System.out::println);
         System.out.println("*******");
-        List<SysService> sysServices = os.getServices();
-        System.out.println("sysServices.size: " + sysServices.size());
-        sysServices.forEach(System.out::println);
+        List<SysProcess> sysProcesses = os.getProcesses();
+        System.out.println("sysProcesses.size: " + sysProcesses.size());
+        sysProcesses.forEach(System.out::println);
+        System.out.println("*******");
+//        List<SysService> sysServices = os.getServices();
+//        System.out.println("sysServices.size: " + sysServices.size());
+//        sysServices.forEach(System.out::println);
+//        SysProcess proc = os.getProcess(40345);
+//        System.out.println(proc);
 
     }
 }

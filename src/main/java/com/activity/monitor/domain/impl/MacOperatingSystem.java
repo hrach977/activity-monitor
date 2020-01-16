@@ -154,7 +154,25 @@ public class MacOperatingSystem extends OperatingSystem {
 
     @Override
     public List<SysProcess> getProcesses() {
-        return null;
+        List<SysProcess> procs = new ArrayList<>();
+        int[] buffer = new int[this.maxProc];
+
+        int numberOfProcesses = SystemB.INSTANCE.proc_listpids(SystemB.PROC_ALL_PIDS, 0, buffer,
+                buffer.length * SystemB.INT_SIZE) / SystemB.INT_SIZE;
+
+        for (int i = 0; i < numberOfProcesses; i++) {
+            // Handle the OB1 error
+            if (buffer[i] == 0) {
+                continue;
+            }
+
+            SysProcess proc = getProcess(buffer[i]);
+            if (proc != null) {
+                procs.add(proc);
+            }
+        }
+
+        return procs;
     }
 
     @Override
