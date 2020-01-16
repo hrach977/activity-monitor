@@ -9,8 +9,14 @@ import java.util.List;
 
 public class Application {
 
+    //todo: include also a monitoring component, injecting an OS instance to it via constructor, which watches the FS for changes
+    //the component should choose the appropriate path to watch for based on the actual type of the OS injected in it
+
     public static void main(String[] args) {
         OperatingSystem os = new MacOperatingSystem();
+        System.out.println(MacOperatingSystem.class == os.getClass());
+        System.out.println("the class: " + MacOperatingSystem.class);
+        System.out.println("the class: " + os.getClass());
         System.out.println("manufacturer: " + os.getManufacturer());
         System.out.println("elevated: " + os.isElevated());
         System.out.println("proc count: " + os.getProcessCount());
