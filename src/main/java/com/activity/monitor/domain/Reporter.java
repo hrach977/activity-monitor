@@ -14,8 +14,6 @@ import java.util.Map;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
-//todo this is that component mentioned in Application.class
-//todo maybe this should not depend on the os, but rather os methods are called from the callback passed to the start()?
 public class Reporter {
 
     private final OperatingSystem os;
@@ -52,7 +50,7 @@ public class Reporter {
 
     public void start(Runnable stats) {
         initialReport.run();
-        //todo the watchservice loop, which invokes run in case of new key
+
         while (watchKeys.size() > 0) {
 
             WatchKey key;
@@ -90,7 +88,7 @@ public class Reporter {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                 WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
-                watchKeys.add(key); //todo adding so that to track the size when removing keys in case of invalidity
+                watchKeys.add(key);
                 return FileVisitResult.CONTINUE;
             }
         });
