@@ -1,6 +1,7 @@
 package com.activity.monitor.domain;
 
 import com.activity.monitor.AppConstants;
+import com.activity.monitor.common.SysProcess;
 import com.activity.monitor.domain.impl.MacOperatingSystem;
 
 import java.io.IOException;
@@ -13,11 +14,15 @@ import java.util.Map;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
+//todo this is that component mentioned in Application.class
+//todo maybe this should not depend on the os, but rather os methods are called from the callback passed to the start()?
 public class Reporter {
 
     private final OperatingSystem os;
 
-    private final WatchService watcher;
+    private WatchService watcher;
+
+    private final Runnable initialReport;
 
     private final List<WatchKey> watchKeys = new LinkedList<>();
 
@@ -25,13 +30,26 @@ public class Reporter {
        put(MacOperatingSystem.class, AppConstants.MAC_DIR_TO_WATCH);
     }};
 
-    public Reporter(OperatingSystem os) throws IOException {
+    public Reporter(OperatingSystem os, Runnable initialReport) {
         this.os = os;
+        this.initialReport = initialReport;
     }
 
     {
-        watcher = FileSystems.getDefault().newWatchService();
+        try {
+            watcher = FileSystems.getDefault().newWatchService();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         Runtime.getRuntime().addShutdownHook(new Thread(this::hook));
+    }
+
+    public void start(Runnable stats) {
+        initialReport.run();
+        //todo the watchservice loop, which invokes run in case of new key
+        while (watchKeys.size() > 0) {
+
+        }
     }
 
     private void hook() {
@@ -44,9 +62,18 @@ public class Reporter {
         }
     }
 
-    public void start() {
 
-    }
+//    private void initialReport() {
+//        System.out.println("manufacturer: " + os.getManufacturer());
+//        System.out.println("elevated: " + os.isElevated());
+//        System.out.println("proc count: " + os.getProcessCount());
+//        System.out.println("thread count: " + os.getThreadCount());
+//        System.out.println("*******");
+//        List<SysProcess> sysProcesses = os.getProcesses();
+//        System.out.println("sysProcesses.size: " + sysProcesses.size());
+//        sysProcesses.forEach(System.out::println);
+//        System.out.println("*******");
+//    }
 
     private void addWatchKeys(final Path root) throws IOException {
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
