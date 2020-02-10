@@ -33,6 +33,11 @@ public class Reporter {
     public Reporter(OperatingSystem os, Runnable initialReport) {
         this.os = os;
         this.initialReport = initialReport;
+        try {
+            addWatchKeys(Paths.get(PROCFS_PATH.get(os.getClass())));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     {
@@ -41,6 +46,7 @@ public class Reporter {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
         Runtime.getRuntime().addShutdownHook(new Thread(this::hook));
     }
 
@@ -61,19 +67,6 @@ public class Reporter {
             }
         }
     }
-
-
-//    private void initialReport() {
-//        System.out.println("manufacturer: " + os.getManufacturer());
-//        System.out.println("elevated: " + os.isElevated());
-//        System.out.println("proc count: " + os.getProcessCount());
-//        System.out.println("thread count: " + os.getThreadCount());
-//        System.out.println("*******");
-//        List<SysProcess> sysProcesses = os.getProcesses();
-//        System.out.println("sysProcesses.size: " + sysProcesses.size());
-//        sysProcesses.forEach(System.out::println);
-//        System.out.println("*******");
-//    }
 
     private void addWatchKeys(final Path root) throws IOException {
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
