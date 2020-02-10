@@ -48,11 +48,11 @@ public class Reporter {
 
     }
 
-    private void addWatchKeys(final Path root, final WatchService watchService) throws IOException {
+    private void addWatchKeys(final Path root) throws IOException {
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                WatchKey key = dir.register(watchService, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+                WatchKey key = dir.register(watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
                 watchKeys.add(key); //todo adding so that to track the size when removing keys in case of invalidity
                 return FileVisitResult.CONTINUE;
             }
