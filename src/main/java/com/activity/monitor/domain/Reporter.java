@@ -55,6 +55,23 @@ public class Reporter {
         //todo the watchservice loop, which invokes run in case of new key
         while (watchKeys.size() > 0) {
 
+            WatchKey key;
+
+            try {
+                key = watcher.take();
+            } catch (InterruptedException x) {
+                return;
+            }
+
+            if (key.pollEvents().stream().allMatch(it -> it.kind() == OVERFLOW)) {
+                continue;
+            }
+
+            stats.run();
+
+            if (!key.reset()) {
+                watchKeys.remove(key);
+            }
         }
     }
 
